@@ -5,6 +5,8 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 import pytesseract
 from PIL import Image
+import pystray
+import threading
 
 class OCRApp(QMainWindow):
     def __init__(self):
@@ -75,10 +77,36 @@ class OCRApp(QMainWindow):
         except Exception as e:
             self.result_text.setText(f'识别出错：{str(e)}')
 
+def create_tray_icon():
+    # 创建托盘图标
+    icon_image = Image.open("./icon.png")  # 替换为你的图标路径
+    
+    def on_quit():
+        icon.stop()
+        # 在这里添加退出程序的逻辑
+        
+    menu = pystray.Menu(
+        pystray.MenuItem("退出", on_quit)
+    )
+    
+    icon = pystray.Icon(
+        "OCR工具",  # 图标名称
+        icon_image,  # 图标图像
+        "OCR工具",  # 鼠标悬停时显示的文字
+        menu
+    )
+    
+    icon.run()
+
 def main():
     app = QApplication(sys.argv)
     window = OCRApp()
     window.show()
+    
+    # 创建一个新线程来运行托盘图标
+    tray_thread = threading.Thread(target=create_tray_icon, daemon=True)
+    tray_thread.start()
+    
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
