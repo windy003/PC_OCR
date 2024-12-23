@@ -22,8 +22,18 @@ class OCRApp(QMainWindow):
         super().__init__()
         pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
         
+        # 获取图标路径
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的 exe
+            application_path = sys._MEIPASS
+        else:
+            # 如果是源代码运行
+            application_path = os.path.dirname(os.path.abspath(__file__))
+            
+        icon_path = os.path.join(application_path, "icon.ico")
+        
         # 设置应用图标
-        icon = QIcon("icon.ico")
+        icon = QIcon(icon_path)
         self.setWindowIcon(icon)  # 设置窗口图标
         QApplication.instance().setWindowIcon(icon)  # 设置应用程序图标
         
@@ -165,8 +175,16 @@ class OCRApp(QMainWindow):
         self.hide()     # 隐藏窗口而不是关闭
 
 def create_tray_icon(app_window):
+    # 获取图标路径
+    if getattr(sys, 'frozen', False):
+        application_path = sys._MEIPASS
+    else:
+        application_path = os.path.dirname(os.path.abspath(__file__))
+        
+    icon_path = os.path.join(application_path, "icon.ico")
+    
     # 使用 .ico 文件作为托盘图标
-    icon_image = Image.open("icon.ico")
+    icon_image = Image.open(icon_path)
     
     def on_quit():
         icon.stop()
