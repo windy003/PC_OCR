@@ -7,17 +7,35 @@ import pytesseract
 from PIL import Image
 import pystray
 import threading
+import keyboard
+from PIL import ImageGrab
+import win32clipboard
+import io
+import cv2
+import os
+import pyperclip
+import tkinter as tk
+from tkinter import ttk
 
 class OCRApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        # 添加这一行，路径要根据实际安装位置修改
         pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
         self.initUI()
         
     def initUI(self):
         self.setWindowTitle('OCR 文字识别软件')
-        self.setGeometry(100, 100, 800, 600)
+        
+        # 获取屏幕尺寸
+        screen = QApplication.primaryScreen().geometry()
+        # 设置窗口大小为屏幕的80%
+        width = int(screen.width() * 0.8)
+        height = int(screen.height() * 0.8)
+        # 计算窗口位置使其居中
+        x = (screen.width() - width) // 2
+        y = (screen.height() - height) // 2
+        # 设置窗口大小和位置
+        self.setGeometry(x, y, width, height)
         
         # 创建中心部件和布局
         central_widget = QWidget()
@@ -27,6 +45,14 @@ class OCRApp(QMainWindow):
         # 创建控件
         self.select_btn = QPushButton('选择图片(&O)', self)
         self.select_btn.clicked.connect(self.select_image)
+        
+        # 添加从剪贴板导入按钮
+        self.clipboard_btn = QPushButton('从剪贴板导入(&V)', self)
+        self.clipboard_btn.clicked.connect(self.handle_clipboard)
+        
+        # 添加清除按钮
+        self.clear_btn = QPushButton('清除图片(&C)', self)
+        self.clear_btn.clicked.connect(self.clear_image)
         
         self.image_label = QLabel(self)
         self.image_label.setAlignment(Qt.AlignCenter)
@@ -40,12 +66,46 @@ class OCRApp(QMainWindow):
         
         # 添加控件到布局
         layout.addWidget(self.select_btn)
+        layout.addWidget(self.clipboard_btn)  # 添加新按钮
+        layout.addWidget(self.clear_btn)  # 添加清除按钮
         layout.addWidget(self.image_label)
         layout.addWidget(self.ocr_btn)
         layout.addWidget(self.result_text)
         
         self.image_path = None
         
+        # 设置快捷键
+        self.clipboard_btn.setShortcut('Alt+V')  # 使用 Alt+V 作为快捷键
+        self.clear_btn.setShortcut('Alt+C')     # 使用 Alt+C 作为快捷键
+    
+    def handle_clipboard(self):
+        try:
+            image = ImageGrab.grabclipboard()
+            if isinstance(image, list):  # 如果是文件列表
+                for file_path in image:
+                    if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+                        self.image_path = file_path
+                        pixmap = QPixmap(file_path)
+                        self.update_image_display(pixmap)
+                        break
+            elif image:  # 如果是直接复制的图片
+                # 保存临时文件
+                temp_path = "temp_clipboard.png"
+                image.save(temp_path)
+                self.image_path = temp_path
+                pixmap = QPixmap(temp_path)
+                self.update_image_display(pixmap)
+        except Exception as e:
+            self.result_text.setText(f'处理剪贴板出错：{str(e)}')
+    
+    def update_image_display(self, pixmap):
+        scaled_pixmap = pixmap.scaled(
+            self.image_label.size(),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+        self.image_label.setPixmap(scaled_pixmap)
+    
     def select_image(self):
         file_name, _ = QFileDialog.getOpenFileName(
             self,
@@ -76,6 +136,19 @@ class OCRApp(QMainWindow):
             self.result_text.setText(text)
         except Exception as e:
             self.result_text.setText(f'识别出错：{str(e)}')
+    
+    def clear_image(self):
+        """清除当前显示的图片和识别结果"""
+        self.image_label.clear()  # ��除图片显示
+        self.result_text.clear()  # 清除识别结果
+        self.image_path = None    # 清除图片路径
+        
+        # 删除临时文件（如果存在）
+        if os.path.exists("temp_clipboard.png"):
+            try:
+                os.remove("temp_clipboard.png")
+            except Exception as e:
+                print(f"删除临时文件失败：{str(e)}")
 
 def create_tray_icon():
     # 创建托盘图标
@@ -98,12 +171,59 @@ def create_tray_icon():
     
     icon.run()
 
+def handle_clipboard():
+    try:
+        # 尝试从剪贴板获取图片
+        image = ImageGrab.grabclipboard()
+        
+        # 处理不同类型的剪贴板内容
+        if isinstance(image, list):  # 如果是文件列表
+            for file_path in image:
+                if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+                    img = Image.open(file_path)
+                    ocr_image(img)  # 直接处理图片对象
+                    break  # 只处理第一个图片
+        elif image:  # 如果是直接复制的图片
+            ocr_image(image)  # 直接处理图片对象
+            
+    except Exception as e:
+        print(f"处理剪贴板出错: {e}")
+
+def ocr_image(image):
+    try:
+        # 保存临时文件
+        temp_path = "temp_clipboard.png"
+        image.save(temp_path)
+        
+        # 调用你现有的OCR处理逻辑
+        img = cv2.imread(temp_path)
+        result = ocr.ocr(img)
+        
+        # 处理OCR结果
+        if result:
+            text = result[0][1][0]  # 获取识别的文本
+            pyperclip.copy(text)  # 将结果复制到贴板
+            print(f"识别结果：{text}")
+            
+        # 删除临时文件
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+    except Exception as e:
+        print(f"OCR处理出错: {e}")
+
+def setup_hotkey():
+    keyboard.add_hotkey('ctrl+v', handle_clipboard)
+
 def main():
     app = QApplication(sys.argv)
     window = OCRApp()
     window.show()
     
-    # 创建一个新线程来运行托盘图标
+    # 设置热键
+    setup_hotkey()
+    
+    # 创建托盘图标线程
     tray_thread = threading.Thread(target=create_tray_icon, daemon=True)
     tray_thread.start()
     
