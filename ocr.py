@@ -23,6 +23,9 @@ class OCRApp(QMainWindow):
         pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
         self.initUI()
         
+        # 重写关闭事件
+        self.closeEvent = self.handle_close
+        
     def initUI(self):
         self.setWindowTitle('OCR 文字识别软件')
         
@@ -139,7 +142,7 @@ class OCRApp(QMainWindow):
     
     def clear_image(self):
         """清除当前显示的图片和识别结果"""
-        self.image_label.clear()  # ��除图片显示
+        self.image_label.clear()  # 清除图片显示
         self.result_text.clear()  # 清除识别结果
         self.image_path = None    # 清除图片路径
         
@@ -149,16 +152,27 @@ class OCRApp(QMainWindow):
                 os.remove("temp_clipboard.png")
             except Exception as e:
                 print(f"删除临时文件失败：{str(e)}")
+    
+    def handle_close(self, event):
+        """处理窗口关闭事件"""
+        event.ignore()  # 忽略关闭事件
+        self.hide()     # 隐藏窗口而不是关闭
 
-def create_tray_icon():
+def create_tray_icon(app_window):
     # 创建托盘图标
     icon_image = Image.open("./icon.png")  # 替换为你的图标路径
     
     def on_quit():
         icon.stop()
-        # 在这里添加退出程序的逻辑
+        app_window.close()  # 关闭主窗口
+        QApplication.instance().quit()  # 退出应用
         
+    def on_show():
+        app_window.show()
+        app_window.activateWindow()  # 激活窗口
+    
     menu = pystray.Menu(
+        pystray.MenuItem("显示主窗口", on_show),
         pystray.MenuItem("退出", on_quit)
     )
     
@@ -223,8 +237,8 @@ def main():
     # 设置热键
     setup_hotkey()
     
-    # 创建托盘图标线程
-    tray_thread = threading.Thread(target=create_tray_icon, daemon=True)
+    # 创建托盘图标线程，传入主窗口引用
+    tray_thread = threading.Thread(target=lambda: create_tray_icon(window), daemon=True)
     tray_thread.start()
     
     sys.exit(app.exec_())
