@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                            QPushButton, QLabel, QFileDialog, QTextEdit)
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap, QImage, QIcon
 from PyQt5.QtCore import Qt
 import pytesseract
 from PIL import Image
@@ -21,6 +21,12 @@ class OCRApp(QMainWindow):
     def __init__(self):
         super().__init__()
         pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        
+        # 设置应用图标
+        icon = QIcon("icon.ico")
+        self.setWindowIcon(icon)  # 设置窗口图标
+        QApplication.instance().setWindowIcon(icon)  # 设置应用程序图标
+        
         self.initUI()
         
         # 重写关闭事件
@@ -159,8 +165,8 @@ class OCRApp(QMainWindow):
         self.hide()     # 隐藏窗口而不是关闭
 
 def create_tray_icon(app_window):
-    # 创建托盘图标
-    icon_image = Image.open("./icon.png")  # 替换为你的图标路径
+    # 使用 .ico 文件作为托盘图标
+    icon_image = Image.open("icon.ico")
     
     def on_quit():
         icon.stop()
